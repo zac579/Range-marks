@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Range Marks</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #101214;
+  color: #f1f1f1;
+}
+
+header {
+  padding: 18px;
+  background: #171a1d;
+  border-bottom: 1px solid #333;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.subtitle {
+  color: #aaa;
+  margin-top: 4px;
+}
+
+main {
+  max-width: 900px;
+  margin: auto;
+  padding: 14px;
+}
+
+.card {
+  background: #191d21;
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+h2 {
+  margin-top: 0;
+  font-size: 20px;
+}
+
+label {
+  display: block;
+  color: #aaa;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+input,
+select,
+button {
+  font-size: 16px;
+  border-radius: 9px;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 12px;
+  background: #0f1113;
+  color: white;
+  border: 1px solid #444;
+}
+
+button {
+  border: 0;
+  padding: 13px 16px;
+  margin-top: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.primary {
+  background: #19a64a;
+  color: white;
+}
+
+.secondary {
+  background: #2c3339;
+  color: white;
+}
+
+.danger {
+  background: #9d3030;
+  color: white;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media(max-width:600px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.status {
+  padding: 10px;
+  background: #111416;
+  border-radius: 8px;
+  margin-top: 10px;
+  color: #ccc;
+  font-size: 14px;
+}
+
+.status.good {
+  color: #70e49a;
+}
+
+.status.warn {
+  color: #ffd166;
+}
+
+.big-number {
+  font-size: 30px;
+  font-weight: bold;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 8px;
+}
+
+.stat {
+  background: #111416;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.stat small {
+  display: block;
+  color: #999;
+  margin-bottom: 5px;
+}
+
+#chart {
+  width: 100%;
+  height: 420px;
+  background: #0d0f10;
+  border-radius: 10px;
+  border: 1px solid #333;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th,
+td {
+  padding: 8px 5px;
+  border-bottom: 1px solid #333;
+  text-align: left;
+}
+
+th {
+  color: #aaa;
+}
+
+.small {
+  font-size: 13px;
+  color: #999;
+}
+
+.hidden {
+  display: none;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.row button {
+  flex: 1;
+  min-width: 130px;
+}
+
+.coordinates {
+  font-family: monospace;
+  font-size: 12px;
+  color: #aaa;
+  word-break: break-all;
+}
+
+.ball {
+  fill: white;
+  stroke: #111;
+  stroke-width: 2;
+}
+
+.center-line {
+  stroke: #555;
+  stroke-width: 1;
+  stroke-dasharray: 5 5;
+}
+
+.target-line {
+  stroke: #777;
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+}
+
+.grid-line {
+  stroke: #292d30;
+  stroke-width: 1;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Range Marks</h1>
+  <div class="subtitle">GPS Golf Dispersion Tool</div>
+</header>
+
+<main>
+
+<!-- SESSION -->
+<div class="card">
+  <h2>1. Session</h2>
+
+  <div class="grid">
+
+    <div>
+      <label>Club</label>
+      <select id="club">
+        <option>Driver</option>
+        <option>3 Wood</option>
+        <option>5 Wood</option>
+        <option>Hybrid</option>
+        <option>2 Iron</option>
+        <option>3 Iron</option>
+        <option>4 Iron</option>
+        <option>5 Iron</option>
+        <option>6 Iron</option>
+        <option>7 Iron</option>
+        <option>8 Iron</option>
+        <option>9 Iron</option>
+        <option>PW</option>
+        <option>GW</option>
+        <option>SW</option>
+        <option>LW</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Add another club</label>
+      <input id="newClub" placeholder="Example: 4H">
+      <button class="secondary" onclick="addClub()">Add Club</button>
+    </div>
+
+  </div>
+
+  <div class="status" id="sessionStatus">
+    No anchor set.
+  </div>
+</div>
+
+
+<!-- GPS -->
+<div class="card">
+  <h2>2. GPS Setup</h2>
+
+  <div class="row">
+    <button class="primary" onclick="setAnchor()">
+      📍 Set Anchor
+    </button>
+
+    <button class="secondary" onclick="setTarget()">
+      🎯 Set Target Line
+    </button>
+  </div>
+
+  <div id="gpsStatus" class="status">
+    Waiting for GPS.
+  </div>
+
+  <div id="manualBox" class="hidden">
+
+    <p class="small">
+      If Chrome refuses GPS permission, enter your coordinates manually.
+      You can get them from Google Maps or your phone's location.
+    </p>
+
+    <div class="grid">
+
+      <div>
+        <label>Latitude</label>
+        <input id="manualLat" type="number" step="any">
+      </div>
+
+      <div>
+        <label>Longitude</label>
+        <input id="manualLon" type="number" step="any">
+      </div>
+
+    </div>
+
+    <button class="secondary" onclick="useManualAnchor()">
+      Use Manual Anchor
+    </button>
+
+  </div>
+
+  <div class="coordinates" id="anchorDisplay"></div>
+</div>
+
+
+<!-- LOG -->
+<div class="card">
+  <h2>3. Log Ball</h2>
+
+  <p class="small">
+    Walk to the ball, make sure the correct club is selected,
+    then press Log Ball.
+  </p>
+
+  <button class="primary" style="width:100%;font-size:20px" onclick="logBall()">
+    🏌️ LOG BALL
+  </button>
+
+  <div class="status" id="logStatus">
+    No shots logged yet.
+  </div>
+</div>
+
+
+<!-- STATS -->
+<div class="card">
+  <h2>4. Dispersion</h2>
+
+  <div class="stats">
+
+    <div class="stat">
+      <small>Shots</small>
+      <div class="big-number" id="shotCount">0</div>
+    </div>
+
+    <div class="stat">
+      <small>Average Distance</small>
+      <div class="big-number" id="avgDistance">—</div>
+    </div>
+
+    <div class="stat">
+      <small>Average L/R</small>
+      <div class="big-number" id="avgLR">—</div>
+    </div>
+
+  </div>
+
+  <br>
+
+  <svg id="chart" viewBox="0 0 700 420"></svg>
+
+  <p class="small">
+    Center line = target line. Positive L/R values indicate right of target.
+  </p>
+</div>
+
+
+<!-- SHOTS -->
+<div class="card">
+  <h2>5. Shot Log</h2>
+
+  <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Club</th>
+          <th>Distance</th>
+          <th>L/R</th>
+          <th>GPS Acc.</th>
+        </tr>
+      </thead>
+
+      <tbody id="shotTable"></tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- EXPORT -->
+<div class="card">
+
+  <h2>6. Data</h2>
+
+  <div class="row">
+
+    <button class="primary" onclick="exportCSV()">
+      📥 Export CSV
+    </button>
+
+    <button class="danger" onclick="resetSession()">
+      🔄 Reset Session
+    </button>
+
+  </div>
+
+</div>
+
+</main>
+
+
+<script>
+
+let anchor = null;
+let target = null;
+let shots = [];
+
+const STORAGE_KEY = "rangeMarksSession";
+
+
+/* =========================
+   STORAGE
+========================= */
+
+function saveData() {
+
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      anchor,
+      target,
+      shots
+    })
+  );
+
+}
+
+
+function loadData() {
+
+  const saved = localStorage.getItem(STORAGE_KEY);
+
+  if (!saved) return;
+
+  try {
+
+    const data = JSON.parse(saved);
+
+    anchor = data.anchor || null;
+    target = data.target || null;
+    shots = data.shots || [];
+
+  } catch(e) {
+
+    console.log("Could not load saved session.");
+
+  }
+
+}
+
+
+/* =========================
+   GPS
+========================= */
+
+function getGPS(callback) {
+
+  if (!navigator.geolocation) {
+
+    showManual();
+
+    document.getElementById("gpsStatus").innerText =
+      "This browser does not provide GPS. Use manual coordinates.";
+
+    return;
+  }
+
+  document.getElementById("gpsStatus").innerText =
+    "Getting GPS location...";
+
+  navigator.geolocation.getCurrentPosition(
+
+    function(position) {
+
+      callback({
+
+        lat: position.coords.latitude,
+
+        lon: position.coords.longitude,
+
+        accuracy: position.coords.accuracy
+
+      });
+
+    },
+
+    function(error) {
+
+      showManual();
+
+      let message = "GPS unavailable.";
+
+      if (error.code === 1) {
+        message =
+          "Location permission was denied. Use the manual GPS option below, or allow location permission for this site in Chrome.";
+      }
+
+      if (error.code === 2) {
+        message =
+          "GPS position unavailable. Move somewhere with a clearer GPS signal.";
+      }
+
+      if (error.code === 3) {
+        message =
+          "GPS request timed out.";
+      }
+
+      document.getElementById("gpsStatus").innerText =
+        message;
+
+      document.getElementById("gpsStatus").className =
+        "status warn";
+
+    },
+
+    {
+
+      enableHighAccuracy: true,
+
+      timeout: 15000,
+
+      maximumAge: 0
+
+    }
+
+  );
+
+}
+
+
+function showManual() {
+
+  document
+    .getElementById("manualBox")
+    .classList.remove("hidden");
+
+}
+
+
+function setAnchor() {
+
+  getGPS(function(pos) {
+
+    anchor = pos;
+
+    target = null;
+
+    document.getElementById("gpsStatus").innerText =
+      "Anchor set successfully.";
+
+    document.getElementById("gpsStatus").className =
+      "status good";
+
+    document.getElementById("anchorDisplay").innerText =
+      "Anchor: " +
+      pos.lat.toFixed(7) +
+      ", " +
+      pos.lon.toFixed(7) +
+      " | Accuracy: " +
+      Math.round(pos.accuracy) +
+      " m";
+
+    document.getElementById("sessionStatus").innerText =
+      "Anchor set. Now set your target line.";
+
+    saveData();
+
+  });
+
+}
+
+
+function useManualAnchor() {
+
+  const lat =
+    parseFloat(document.getElementById("manualLat").value);
+
+  const lon =
+    parseFloat(document.getElementById("manualLon").value);
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon)
+  ) {
+
+    alert("Enter a valid latitude and longitude.");
+
+    return;
+
+  }
+
+  anchor = {
+
+    lat: lat,
+
+    lon: lon,
+
+    accuracy: 0
+
+  };
+
+  target = null;
+
+  document.getElementById("gpsStatus").innerText =
+    "Manual anchor set.";
+
+  document.getElementById("gpsStatus").className =
+    "status good";
+
+  document.getElementById("anchorDisplay").innerText =
+    "Anchor: " +
+    lat.toFixed(7) +
+    ", " +
+    lon.toFixed(7) +
+    " | Manual";
+
+  document.getElementById("sessionStatus").innerText =
+    "Anchor set. Now set your target line.";
+
+  saveData();
+
+}
+
+
+/* =========================
+   TARGET LINE
+========================= */
+
+function setTarget() {
+
+  if (!anchor) {
+
+    alert("Set the anchor first.");
+
+    return;
+
+  }
+
+  getGPS(function(pos) {
+
+    target = {
+
+      lat: pos.lat,
+
+      lon: pos.lon
+
+    };
+
+    document.getElementById("gpsStatus").innerText =
+      "Target line set.";
+
+    document.getElementById("gpsStatus").className =
+      "status good";
+
+    document.getElementById("sessionStatus").innerText =
+      "Ready. Hit your balls, walk to each one, and Log Ball.";
+
+    saveData();
+
+  });
+
+}
+
+
+/* =========================
+   GEO MATH
+========================= */
+
+function distanceMeters(lat1, lon1, lat2, lon2) {
+
+  const R = 6371000;
+
+  const p1 = lat1 * Math.PI / 180;
+  const p2 = lat2 * Math.PI / 180;
+
+  const dp =
+    (lat2 - lat1) * Math.PI / 180;
+
+  const dl =
+    (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dp / 2) ** 2 +
+    Math.cos(p1) *
+    Math.cos(p2) *
+    Math.sin(dl / 2) ** 2;
+
+  return R *
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    );
+
+}
+
+
+function bearingDegrees(lat1, lon1, lat2, lon2) {
+
+  const p1 = lat1 * Math.PI / 180;
+  const p2 = lat2 * Math.PI / 180;
+
+  const dl =
+    (lon2 - lon1) * Math.PI / 180;
+
+  const y =
+    Math.sin(dl) * Math.cos(p2);
+
+  const x =
+    Math.cos(p1) * Math.sin(p2) -
+    Math.sin(p1) *
+    Math.cos(p2) *
+    Math.cos(dl);
+
+  let bearing =
+    Math.atan2(y, x) *
+    180 / Math.PI;
+
+  return (bearing + 360) % 360;
+
+}
+
+
+function normalizeAngle(angle) {
+
+  while (angle > 180) angle -= 360;
+
+  while (angle < -180) angle += 360;
+
+  return angle;
+
+}
+
+
+/*
+Calculate signed lateral distance.
+
+Positive = right
+Negative = left
+*/
+
+function calculateLR(pos) {
+
+  if (!target) return 0;
+
+  const targetBearing =
+    bearingDegrees(
+      anchor.lat,
+      anchor.lon,
+      target.lat,
+      target.lon
+    );
+
+  const shotBearing =
+    bearingDegrees(
+      anchor.lat,
+      anchor.lon,
+      pos.lat,
+      pos.lon
+    );
+
+  const angle =
+    normalizeAngle(
+      shotBearing - targetBearing
+    );
+
+  const distance =
+    distanceMeters(
+      anchor.lat,
+      anchor.lon,
+      pos.lat,
+      pos.lon
+    );
+
+  return Math.sin(
+    angle * Math.PI / 180
+  ) * distance;
+
+}
+
+
+/* =========================
+   LOG SHOT
+========================= */
+
+function logBall() {
+
+  if (!anchor) {
+
+    alert("Set the anchor first.");
+
+    return;
+
+  }
+
+  if (!target) {
+
+    alert("Set the target line first.");
+
+    return;
+
+  }
+
+  getGPS(function(pos) {
+
+    const distance =
+      distanceMeters(
+        anchor.lat,
+        anchor.lon,
+        pos.lat,
+        pos.lon
+      );
+
+    const lr =
+      calculateLR(pos);
+
+    const shot = {
+
+      number: shots.length + 1,
+
+      club:
+        document.getElementById("club").value,
+
+      lat: pos.lat,
+
+      lon: pos.lon,
+
+      distance: distance,
+
+      lr: lr,
+
+      accuracy: pos.accuracy,
+
+      time: new Date().toISOString()
+
+    };
+
+    shots.push(shot);
+
+    saveData();
+
+    updateDisplay();
+
+    document.getElementById("logStatus").innerText =
+      "Ball #" +
+      shot.number +
+      " logged: " +
+      formatDistance(distance) +
+      " / " +
+      formatLR(lr);
+
+    document.getElementById("logStatus").className =
+      "status good";
+
+  });
+
+}
+
+
+/* =========================
+   FORMATTING
+========================= */
+
+function formatDistance(meters) {
+
+  const yards =
+    meters * 1.0936133;
+
+  return Math.round(yards) + " yd";
+
+}
+
+
+function formatLR(meters) {
+
+  const yards =
+    meters * 1.0936133;
+
+  if (Math.abs(yards) < 0.5)
+    return "Center";
+
+  return Math.abs(yards).toFixed(1) +
+    " yd " +
+    (yards > 0 ? "R" : "L");
+
+}
+
+
+/* =========================
+   DISPLAY
+========================= */
+
+function updateDisplay() {
+
+  document.getElementById("shotCount").innerText =
+    shots.length;
+
+  if (!shots.length) {
+
+    document.getElementById("avgDistance").innerText =
+      "—";
+
+    document.getElementById("avgLR").innerText =
+      "—";
+
+  } else {
+
+    const avgDistance =
+      shots.reduce(
+        (sum, s) => sum + s.distance,
+        0
+      ) / shots.length;
+
+    const avgLR =
+      shots.reduce(
+        (sum, s) => sum + s.lr,
+        0
+      ) / shots.length;
+
+    document.getElementById("avgDistance").innerText =
+      formatDistance(avgDistance);
+
+    document.getElementById("avgLR").innerText =
+      formatLR(avgLR);
+
+  }
+
+  updateTable();
+
+  drawChart();
+
+}
+
+
+function updateTable() {
+
+  const tbody =
+    document.getElementById("shotTable");
+
+  tbody.innerHTML = "";
+
+  shots.forEach(function(shot) {
+
+    const tr =
+      document.createElement("tr");
+
+    tr.innerHTML =
+      "<td>" + shot.number + "</td>" +
+      "<td>" + escapeHTML(shot.club) + "</td>" +
+      "<td>" + formatDistance(shot.distance) + "</td>" +
+      "<td>" + formatLR(shot.lr) + "</td>" +
+      "<td>" + Math.round(shot.accuracy) + " m</td>";
+
+    tbody.appendChild(tr);
+
+  });
+
+}
+
+
+function escapeHTML(text) {
+
+  return String(text)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+
+}
+
+
+/* =========================
+   CHART
+========================= */
+
+function drawChart() {
+
+  const svg =
+    document.getElementById("chart");
+
+  svg.innerHTML = "";
+
+  const W = 700;
+  const H = 420;
+
+  /*
+    Chart:
+    X = left/right
+    Y = distance
+  */
+
+  const centerX = W / 2;
+  const bottom = H - 35;
+  const top = 25;
+
+  let maxDistance = 100;
+
+  shots.forEach(function(s) {
+
+    maxDistance =
+      Math.max(
+        maxDistance,
+        s.distance
+      );
+
+  });
+
+  maxDistance =
+    Math.ceil(
+      maxDistance * 1.15
+    );
+
+  let maxLR = 30;
+
+  shots.forEach(function(s) {
+
+    maxLR =
+      Math.max(
+        maxLR,
+        Math.abs(s.lr)
+      );
+
+  });
+
+  maxLR =
+    Math.ceil(
+      maxLR * 1.25
+    );
+
+  function xFromLR(lr) {
+
+    return centerX +
+      (lr / (maxLR * 0.9144)) *
+      (W / 2 - 60);
+
+  }
+
+  function yFromDistance(distance) {
+
+    return bottom -
+      (distance / maxDistance) *
+      (bottom - top);
+
+  }
+
+
+  /* horizontal grid */
+
+  for (
+    let d = 0;
+    d <= maxDistance;
+    d += Math.max(10, Math.round(maxDistance / 5))
+  ) {
+
+    const y =
+      yFromDistance(d);
+
+    const line =
+      document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line"
+      );
+
+    line.setAttribute("x1", 45);
+    line.setAttribute("x2", W - 20);
+    line.setAttribute("y1", y);
+    line.setAttribute("y2", y);
+    line.setAttribute("class", "grid-line");
+
+    svg.appendChild(line);
+
+    const text =
+      document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "text"
+      );
+
+    text.setAttribute("x", 5);
+    text.setAttribute("y", y + 4);
+    text.setAttribute("fill", "#888");
+    text.setAttribute("font-size", "12");
+
+    text.textContent =
+      Math.round(d * 1.0936133) + "y";
+
+    svg.appendChild(text);
+
+  }
+
+
+  /* center line */
+
+  const center =
+    document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "line"
+    );
+
+  center.setAttribute("x1", centerX);
+  center.setAttribute("x2", centerX);
+  center.setAttribute("y1", top);
+  center.setAttribute("y2", bottom);
+  center.setAttribute("class", "center-line");
+
+  svg.appendChild(center);
+
+
+  /* balls */
+
+  shots.forEach(function(shot) {
+
+    const circle =
+      document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle"
+      );
+
+    circle.setAttribute(
+      "cx",
+      xFromLR(shot.lr)
+    );
+
+    circle.setAttribute(
+      "cy",
+      yFromDistance(shot.distance)
+    );
+
+    circle.setAttribute(
+      "r",
+      7
+    );
+
+    circle.setAttribute(
+      "class",
+      "ball"
+    );
+
+    svg.appendChild(circle);
+
+
+    const text =
+      document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "text"
+      );
+
+    text.setAttribute(
+      "x",
+      xFromLR(shot.lr) + 10
+    );
+
+    text.setAttribute(
+      "y",
+      yFromDistance(shot.distance) + 4
+    );
+
+    text.setAttribute(
+      "fill",
+      "#ddd"
+    );
+
+    text.setAttribute(
+      "font-size",
+      "12"
+    );
+
+    text.textContent =
+      shot.number;
+
+    svg.appendChild(text);
+
+  });
+
+
+  /* labels */
+
+  const leftLabel =
+    document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "text"
+    );
+
+  leftLabel.setAttribute("x", 50);
+  leftLabel.setAttribute("y", H - 8);
+  leftLabel.setAttribute("fill", "#888");
+  leftLabel.textContent = "LEFT";
+
+  svg.appendChild(leftLabel);
+
+
+  const rightLabel =
+    document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "text"
+    );
+
+  rightLabel.setAttribute(
+    "x",
+    W - 80
+  );
+
+  rightLabel.setAttribute(
+    "y",
+    H - 8
+  );
+
+  rightLabel.setAttribute(
+    "fill",
+    "#888"
+  );
+
+  rightLabel.textContent =
+    "RIGHT";
+
+  svg.appendChild(rightLabel);
+
+}
+
+
+/* =========================
+   CLUBS
+========================= */
+
+function addClub() {
+
+  const input =
+    document.getElementById("newClub");
+
+  const name =
+    input.value.trim();
+
+  if (!name) return;
+
+  const select =
+    document.getElementById("club");
+
+  const option =
+    document.createElement("option");
+
+  option.textContent = name;
+
+  select.appendChild(option);
+
+  select.value = name;
+
+  input.value = "";
+
+}
+
+
+/* =========================
+   CSV
+========================= */
+
+function exportCSV() {
+
+  if (!shots.length) {
+
+    alert("There are no shots to export.");
+
+    return;
+
+  }
+
+  let csv =
+    "Shot,Club,Latitude,Longitude,Distance_Yards,Left_Right_Yards,GPS_Accuracy_Meters,Time\n";
+
+  shots.forEach(function(s) {
+
+    csv +=
+      [
+        s.number,
+        csvSafe(s.club),
+        s.lat,
+        s
