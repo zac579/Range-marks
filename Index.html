@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Range Marks - GPS Golf Dispersion Tool</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#101214;color:#f1f1f1}
+header{padding:18px;background:#171a1d;border-bottom:1px solid #333;position:sticky;top:0;z-index:10}
+h1{margin:0;font-size:28px}.subtitle{color:#aaa;margin-top:4px}
+main{max-width:900px;margin:auto;padding:14px}
+.card,.filter-section{background:#191d21;border:1px solid #333;border-radius:14px;padding:16px;margin-bottom:14px}
+.filter-section{background:#15181b;border-color:#444}
+h2{margin-top:0;font-size:20px}
+label{display:block;color:#aaa;font-size:14px;margin-bottom:5px}
+input,select,button{font-size:16px;border-radius:9px}
+input,select{width:100%;padding:12px;background:#0f1113;color:#fff;border:1px solid #444}
+button{border:0;padding:13px 16px;margin-top:8px;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+.primary{background:#19a64a;color:#fff}.secondary{background:#2c3339;color:#fff}.danger{background:#9d3030;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+.status{padding:10px;background:#111416;border-radius:8px;margin-top:10px;color:#ccc;font-size:14px}
+.status.good{color:#70e49a}.status.warn{color:#ffd166}.status.bad{color:#ff7b7b}
+.big-number{font-size:30px;font-weight:bold}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:#111416;padding:12px;border-radius:10px;text-align:center}
+.stat small{display:block;color:#999;margin-bottom:5px}
+#chart{width:100%;height:420px;background:#0d0f10;border-radius:10px;border:1px solid #333}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 5px;border-bottom:1px solid #333;text-align:left;white-space:nowrap}
+th{color:#aaa}.small{font-size:13px;color:#999}.hidden{display:none}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row button{flex:1;min-width:130px}
+.coordinates{font-family:monospace;font-size:12px;color:#aaa;word-break:break-all}
+.ball{fill:white;stroke:#111;stroke-width:2}.center-line{stroke:#555;stroke-width:1;stroke-dasharray:5 5}
+.grid-line{stroke:#292d30;stroke-width:1}
+.legend{display:flex;justify-content:space-between;color:#888;font-size:12px;margin-top:5px}
+.progress{height:8px;background:#25292d;border-radius:99px;overflow:hidden;margin-top:8px}
+.progress-bar{height:100%;width:0;background:#19a64a;transition:width .2s}
+details{margin-top:10px;color:#bbb}summary{cursor:pointer;color:#ddd}
+.notice{padding:10px;border-left:3px solid #ffd166;background:#141719;color:#ccc;font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+<h1>Range Marks</h1>
+<div class="subtitle">GPS Golf Dispersion Tool</div>
+</header>
+
+<main>
+<div class="filter-section">
+<label>Filter Stats & Chart by Club</label>
+<select id="filterClub" onchange="updateDisplay()"><option value="All">All Clubs</option></select>
+</div>
+
+<div class="card">
+<h2>1. Session</h2>
+<div class="grid">
+<div>
+<label>Club for Next Shot</label>
+<select id="club"></select>
+</div>
+<div>
+<label>Add another club</label>
+<input id="newClub" placeholder="Example: 4H">
+<button class="secondary" onclick="addClub()">Add Club</button>
+</div>
+</div>
+<div class="status" id="sessionStatus">No anchor set.</div>
+</div>
+
+<div class="card">
+<h2>2. GPS Setup</h2>
+<p class="small">For best results, set the anchor where you hit from, then walk well down the intended target line before setting the target. The farther apart those two points are, the more stable the target direction will be.</p>
+<div class="row">
+<button class="primary" id="anchorBtn" onclick="setAnchor()">📍 Set Anchor</button>
+<button class="secondary" id="targetBtn" onclick="setTarget()">🎯 Set Target Line</button>
+</div>
+<div id="gpsStatus" class="status">Waiting for GPS.</div>
+<div id="sampleProgress" class="hidden">
+<div class="small" id="sampleText">Collecting GPS samples...</div>
+<div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+</div>
+
+<div id="manualBox" class="hidden">
+<p class="small">If GPS is unavailable, enter the anchor coordinates manually. Manual anchor mode still requires a GPS target/ball fix for normal measurements.</p>
+<div class="grid">
+<div><label>Latitude</label><input id="manualLat" type="number" step="any"></div>
+<div><label>Longitude</label><input id="manualLon" type="number" step="any"></div>
+</div>
+<button class="secondary" onclick="useManualAnchor()">Use Manual Anchor</button>
+</div>
+<div class="coordinates" id="anchorDisplay"></div>
+<div class="coordinates" id="targetDisplay"></div>
+<details>
+<summary>GPS measurement settings</summary>
+<div class="small" style="margin-top:8px">
+Each anchor, target and ball position uses multiple GPS readings and averages them. A fix is flagged as marginal above 8 m accuracy and rejected above 15 m by default. These thresholds are configurable in the code.
+</div>
+</details>
+</div>
+
+<div class="card">
+<h2>3. Log Ball</h2>
+<p class="small">Walk to the ball, stop moving, make sure the correct club is selected, then press Log Ball. The app will collect several GPS readings before recording the shot.</p>
+<button class="primary" id="logBtn" style="width:100%;font-size:20px" onclick="logBall()">🏌️ LOG BALL</button>
+<div class="status" id="logStatus">No shots logged yet.</div>
+</div>
+
+<div class="card">
+<h2>4. Dispersion</h2>
+<div class="stats">
+<div class="stat"><small>Shots</small><div class="big-number" id="shotCount">0</div></div>
+<div class="stat"><small>Average Distance</small><div class="big-number" id="avgDistance">—</div></div>
+<div class="stat"><small>Average L/R</small><div class="big-number" id="avgLR">—</div></div>
+</div>
+<br>
+<svg id="chart" viewBox="0 0 700 420" aria-label="Golf dispersion chart"></svg>
+<div class="legend"><span>← LEFT</span><span>Target line</span><span>RIGHT →</span></div>
+<p class="small">Distance is downrange distance projected onto the target axis. Positive L/R values are right of the target line; negative values are left.</p>
+</div>
+
+<div class="card">
+<h2>5. Shot Log</h2>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>#</th><th>Club</th><th>Distance</th><th>L/R</th><th>GPS Acc.</th><th>Quality</th><th>Actions</th></tr></thead>
+<tbody id="shotTable"></tbody>
+</table>
+</div>
+</div>
+
+<div class="card">
+<h2>6. Data</h2>
+<div class="row">
+<button class="primary" onclick="exportCSV()">📥 Export CSV</button>
+<button class="danger" onclick="resetSession()">🔄 Reset Session</button>
+</div>
+</div>
+</main>
+
+<script>
+"use strict";
+
+let anchor=null;
+let target=null;
+let basis=null;
+let shots=[];
+let busy=false;
+
+let clubs=["Driver","3 Wood","5 Wood","Hybrid","2 Iron","3 Iron","4 Iron","5 Iron","6 Iron","7 Iron","8 Iron","9 Iron","PW","GW","SW","LW"];
+
+const STORAGE_KEY="rangeMarksSessionV2";
+const CLUBS_KEY="rangeMarksClubsV2";
+
+/* Measurement settings */
+const GPS_SAMPLES=5;
+const SAMPLE_DELAY_MS=350;
+const MAX_ACCEPTABLE_ACCURACY_M=15;
+const MARGINAL_ACCURACY_M=8;
+
+window.onload=function(){
+  loadClubs();
+  loadData();
+  populateClubDropdowns();
+  updateDisplay();
+};
+
+/* ---------- Storage ---------- */
+function saveData(){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify({anchor,target,basis,shots}));
+}
+function loadData(){
+  const saved=localStorage.getItem(STORAGE_KEY);
+  if(!saved)return;
+  try{
+    const data=JSON.parse(saved);
+    anchor=data.anchor||null;
+    target=data.target||null;
+    basis=data.basis||null;
+    shots=Array.isArray(data.shots)?data.shots:[];
+    if(anchor){
+      document.getElementById("anchorDisplay").innerText=
+        "Anchor: "+anchor.lat.toFixed(7)+", "+anchor.lon.toFixed(7)+
+        " | Accuracy: "+formatAccuracy(anchor.accuracy);
+      if(target && basis){
+        document.getElementById("targetDisplay").innerText=
+          "Target: "+target.lat.toFixed(7)+", "+target.lon.toFixed(7)+
+          " | Line length: "+formatDistance(basis.targetLengthM);
+        setSessionReady();
+      }else{
+        document.getElementById("sessionStatus").innerText="Anchor set. Now set your target line.";
+      }
+    }
+  }catch(e){
+    console.error(e);
+  }
+}
+function loadClubs(){
+  try{
+    const saved=localStorage.getItem(CLUBS_KEY);
+    if(saved){
+      const parsed=JSON.parse(saved);
+      if(Array.isArray(parsed)&&parsed.length)clubs=parsed;
+    }
+  }catch(e){console.error(e);}
+}
+function saveClubs(){
+  localStorage.setItem(CLUBS_KEY,JSON.stringify(clubs));
+}
+
+/* ---------- UI ---------- */
+function setSessionReady(){
+  document.getElementById("sessionStatus").innerText=
+    "Ready. Hit your balls, walk to each one, and Log Ball.";
+}
+function populateClubDropdowns(){
+  const clubSelect=document.getElementById("club");
+  const filterSelect=document.getElementById("filterClub");
+  const currentClub=clubSelect.value;
+  const currentFilter=filterSelect.value;
+  clubSelect.innerHTML="";
+  filterSelect.innerHTML='<option value="All">All Clubs</option>';
+  clubs.forEach(function(c){
+    const o1=document.createElement("option");
+    o1.value=c;o1.textContent=c;clubSelect.appendChild(o1);
+    const o2=document.createElement("option");
+    o2.value=c;o2.textContent=c;filterSelect.appendChild(o2);
+  });
+  if(currentClub&&clubs.includes(currentClub))clubSelect.value=currentClub;
+  if(currentFilter&&(currentFilter==="All"||clubs.includes(currentFilter)))filterSelect.value=currentFilter;
+}
+function setBusy(value){
+  busy=value;
+  ["anchorBtn","targetBtn","logBtn"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.disabled=value;
+  });
+}
+function showManual(){
+  document.getElementById("manualBox").classList.remove("hidden");
+}
+function formatAccuracy(m){
+  if(!Number.isFinite(m))return "Unknown";
+  if(m===0)return "Manual";
+  return Math.round(m)+" m";
+}
+
+/* ---------- GPS acquisition ---------- */
+function getSingleGPS(){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation){
+      reject(new Error("This browser does not provide geolocation."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos=>resolve({
+        lat:pos.coords.latitude,
+        lon:pos.coords.longitude,
+        accuracy:Number(pos.coords.accuracy)
+      }),
+      err=>reject(err),
+      {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+    );
+  });
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function updateProgress(i,total,label){
+  document.getElementById("sampleProgress").classList.remove("hidden");
+  document.getElementById("sampleText").innerText=label+" "+i+" / "+total;
+  document.getElementById("progressBar").style.width=((i/total)*100)+"%";
+}
+
+async function collectGPS(label){
+  if(!navigator.geolocation){
+    showManual();
+    throw new Error("GPS is not available in this browser.");
+  }
+
+  setBusy(true);
+  document.getElementById("gpsStatus").className="status";
+  document.getElementById("gpsStatus").innerText="Acquiring "+label.toLowerCase()+" GPS position...";
+
+  const samples=[];
+  const accuracies=[];
+
+  try{
+    for(let i=0;i<GPS_SAMPLES;i++){
+      updateProgress(i+1,GPS_SAMPLES,"Collecting "+label);
+      try{
+        const p=await getSingleGPS();
+        samples.push(p);
+        if(Number.isFinite(p.accuracy))accuracies.push(p.accuracy);
+      }catch(e){
+        console.warn("GPS sample failed",e);
+      }
+      if(i<GPS_SAMPLES-1)await sleep(SAMPLE_DELAY_MS);
+    }
+  }finally{
+    setBusy(false);
+    document.getElementById("sampleProgress").classList.add("hidden");
+  }
+
+  if(samples.length<3){
+    throw new Error("Not enough reliable GPS readings were obtained. Try again in an open area.");
+  }
+
+  /* Reject obviously bad fixes, but don't throw away all data if a single sample is bad. */
+  const good=samples.filter(p=>p.accuracy<=MAX_ACCEPTABLE_ACCURACY_M);
+  const usable=good.length>=3?good:samples;
+
+  const avg=averageGPS(usable);
+  const avgAccuracy=accuracies.length?accuracies.reduce((a,b)=>a+b,0)/accuracies.length:NaN;
+
+  avg.accuracy=avgAccuracy;
+  avg.sampleCount=usable.length;
+
+  if(avgAccuracy>MAX_ACCEPTABLE_ACCURACY_M){
+    throw new Error("GPS accuracy averaged "+Math.round(avgAccuracy)+" m, which is too poor for a trustworthy measurement. Move to a clearer area and try again.");
+  }
+
+  document.getElementById("gpsStatus").innerText=
+    label+" acquired: "+formatAccuracy(avgAccuracy)+" average accuracy.";
+  document.getElementById("gpsStatus").className=
+    avgAccuracy>MARGINAL_ACCURACY_M?"status warn":"status good";
+
+  return avg;
+}
+
+function averageGPS(points){
+  /* Average longitude correctly around the antimeridian. */
+  let lat=0;
+  let x=0,y=0;
+  points.forEach(p=>{
+    lat+=p.lat;
+    const r=p.lon*Math.PI/180;
+    x+=Math.cos(r);y+=Math.sin(r);
+  });
+  lat/=points.length;
+  const lon=Math.atan2(y/points.length,x/points.length)*180/Math.PI;
+  return {lat,lon};
+}
+
+/* ---------- Setup ---------- */
+async function setAnchor(){
+  if(busy)return;
+  try{
+    const oldShots=shots.length;
+    if(oldShots>0){
+      const ok=confirm("Changing the anchor starts a new coordinate system. Keep the existing shots anyway? They will remain in the log but belong to the old setup.");
+      if(!ok)return;
+    }
+    const pos=await collectGPS("Anchor");
+    anchor=pos;
+    target=null;
+    basis=null;
+
+    document.getElementById("anchorDisplay").innerText=
+      "Anchor: "+pos.lat.toFixed(7)+", "+pos.lon.toFixed(7)+
+      " | Accuracy: "+formatAccuracy(pos.accuracy);
+    document.getElementById("targetDisplay").innerText="";
+    document.getElementById("sessionStatus").innerText="Anchor set. Now walk well downrange and set your target line.";
+    saveData();
+  }catch(e){
+    document.getElementById("gpsStatus").innerText=e.message||"GPS acquisition failed.";
+    document.getElementById("gpsStatus").className="status warn";
+    if(!navigator.geolocation)showManual();
+  }
+}
+
+function useManualAnchor(){
+  const lat=parseFloat(document.getElementById("manualLat").value);
+  const lon=parseFloat(document.getElementById("manualLon").value);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)){
+    alert("Enter a valid latitude and longitude.");
+    return;
+  }
+  anchor={lat,lon,accuracy:0,manual:true};
+  target=null;basis=null;
+  document.getElementById("anchorDisplay").innerText=
+    "Anchor: "+lat.toFixed(7)+", "+lon.toFixed(7)+" | Manual";
+  document.getElementById("targetDisplay").innerText="";
+  document.getElementById("gpsStatus").innerText="Manual anchor set.";
+  document.getElementById("gpsStatus").className="status good";
+  document.getElementById("sessionStatus").innerText="Anchor set. Now set your target line.";
+  saveData();
+}
+
+async function setTarget(){
+  if(!anchor){alert("Set the anchor first.");return;}
+  try{
+    const pos=await collectGPS("Target");
+    const local=toLocalMeters(anchor,pos);
+
+    const len=Math.hypot(local.east,local.north);
+    if(len<20){
+      throw new Error("Target point is too close to the anchor. Walk farther downrange—preferably 50 yards or more—then try again.");
+    }
+
+    const forwardNorth=local.north/len;
+    const forwardEast=local.east/len;
+    /* Right vector is clockwise 90 degrees from forward. */
+    const rightEast=forwardNorth;
+    const rightNorth=-forwardEast;
+
+    target=pos;
+    basis={
+      north:forwardNorth,
+      east:forwardEast,
+      rightNorth:rightNorth,
+      rightEast:rightEast,
+      targetLengthM:len
+    };
+
+    document.getElementById("targetDisplay").innerText=
+      "Target: "+pos.lat.toFixed(7)+", "+pos.lon.toFixed(7)+
+      " | Line length: "+formatDistance(len)+
+      " | Accuracy: "+formatAccuracy(pos.accuracy);
+
+    setSessionReady();
+    saveData();
+  }catch(e){
+    document.getElementById("gpsStatus").innerText=e.message||"Could not set target.";
+    document.getElementById("gpsStatus").className="status warn";
+  }
+}
+
+/* ---------- Coordinate math ---------- */
+/*
+  For golf-range distances, a local tangent-plane approximation is more
+  useful than repeatedly comparing bearings. We convert the ball's
+  latitude/longitude into local East/North meters from the anchor, then
+  project that vector onto the target-line basis.
+
+  Forward/downrange = dot(ballVector, forwardVector)
+  Right = dot(ballVector, rightVector)
+  Left = negative right.
+*/
+function toLocalMeters(origin,pos){
+  const R=6371000;
+  const lat0=origin.lat*Math.PI/180;
+  const dLat=(pos.lat-origin.lat)*Math.PI/180;
+  const dLon=(pos.lon-origin.lon)*Math.PI/180;
+  const north=dLat*R;
+  const east=dLon*R*Math.cos(lat0);
+  return {north,east};
+}
+
+function calculateShotMetrics(pos){
+  if(!anchor||!basis)return {distance:0,lr:0};
+  const v=toLocalMeters(anchor,pos);
+  const distance=(v.north*basis.north)+(v.east*basis.east);
+  const lr=(v.north*basis.rightNorth)+(v.east*basis.rightEast);
+  return {distance,lr};
+}
+
+/* ---------- Shot logging ---------- */
+async function logBall(){
+  if(busy)return;
+  if(!anchor){alert("Set the anchor first.");return;}
+  if(!basis){alert("Set the target line first.");return;}
+
+  const club=document.getElementById("club").value;
+
+  try{
+    const pos=await collectGPS("Ball");
+    const metrics=calculateShotMetrics(pos);
+
+    if(metrics.distance<0){
+      const ok=confirm("This ball is behind the anchor relative to the target line ("+
+        formatDistance(Math.abs(metrics.distance))+" behind). Record it anyway?");
+      if(!ok)return;
+    }
+
+    const shot={
+      number:shots.length?Math.max(...shots.map(s=>s.number))+1:1,
+      club,
+      lat:pos.lat,
+      lon:pos.lon,
+      distance:metrics.distance,
+      lr:metrics.lr,
+      accuracy:pos.accuracy,
+      samples:pos.sampleCount,
+      time:new Date().toISOString()
+    };
+
+    shots.push(shot);
+    saveData();
+    updateDisplay();
+
+    document.getElementById("logStatus").innerText=
+      "Ball #"+shot.number+" logged: "+
+      formatDistance(shot.distance)+" / "+formatLR(shot.lr)+
+      " ("+formatAccuracy(shot.accuracy)+")";
+    document.getElementById("logStatus").className=
+      shot.accuracy>MARGINAL_ACCURACY_M?"status warn":"status good";
+  }catch(e){
+    document.getElementById("logStatus").innerText=e.message||"Could not acquire ball GPS.";
+    document.getElementById("logStatus").className="status warn";
+  }
+}
+
+function deleteShot(n){
+  if(confirm("Delete shot #"+n+"?")){
+    shots=shots.filter(s=>s.number!==n);
+    saveData();updateDisplay();
+  }
+}
+
+/* ---------- Formatting/display ---------- */
+function formatDistance(m){
+  const yd=m*1.0936133;
+  return Math.round(yd)+" yd";
+}
+function formatLR(m){
+  const yd=m*1.0936133;
+  if(Math.abs(yd)<0.5)return "Center";
+  return Math.abs(yd).toFixed(1)+" yd "+(yd>0?"R":"L");
+}
+function qualityLabel(acc){
+  if(!Number.isFinite(acc))return "Unknown";
+  if(acc<=3)return "Excellent";
+  if(acc<=MARGINAL_ACCURACY_M)return "Usable";
+  return "Marginal";
+}
+function getFilteredShots(){
+  const f=document.getElementById("filterClub").value;
+  return f==="All"?shots:shots.filter(s=>s.club===f);
+}
+function updateDisplay(){
+  const fs=getFilteredShots();
+  document.getElementById("shotCount").innerText=fs.length;
+  if(!fs.length){
+    document.getElementById("avgDistance").innerText="—";
+    document.getElementById("avgLR").innerText="—";
+  }else{
+    const ad=fs.reduce((a,s)=>a+s.distance,0)/fs.length;
+    const alr=fs.reduce((a,s)=>a+s.lr,0)/fs.length;
+    document.getElementById("avgDistance").innerText=formatDistance(ad);
+    document.getElementById("avgLR").innerText=formatLR(alr);
+  }
+  updateTable();drawChart();
+}
+function updateTable(){
+  const tbody=document.getElementById("shotTable");
+  tbody.innerHTML="";
+  shots.forEach(shot=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=
+      "<td>"+shot.number+"</td>"+
+      "<td>"+escapeHTML(shot.club)+"</td>"+
+      "<td>"+formatDistance(shot.distance)+"</td>"+
+      "<td>"+formatLR(shot.lr)+"</td>"+
+      "<td>"+formatAccuracy(shot.accuracy)+"</td>"+
+      "<td>"+qualityLabel(shot.accuracy)+"</td>"+
+      "<td><button class='danger' style='padding:5px 10px;margin-top:0' onclick='deleteShot("+shot.number+")'>Delete</button></td>";
+    tbody.appendChild(tr);
+  });
+}
+function escapeHTML(t){
+  return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+/* ---------- Chart ---------- */
+function drawChart(){
+  const svg=document.getElementById("chart");
+  svg.innerHTML="";
+  const fs=getFilteredShots();
+  const W=700,H=420,cx=W/2,bottom=H-35,top=25;
+
+  let maxD=100,maxLR=30;
+  fs.forEach(s=>{maxD=Math.max(maxD,s.distance);maxLR=Math.max(maxLR,Math.abs(s.lr));});
+  maxD=Math.max(100,Math.ceil(maxD*1.15));
+  maxLR=Math.max(30,Math.ceil(maxLR*1.25));
+
+  const x=lr=>cx+(lr/maxLR)*(W/2-60);
+  const y=d=>bottom-(d/maxD)*(bottom-top);
+
+  for(let i=0;i<=5;i++){
+    const d=maxD*i/5,yy=y(d);
+    const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+    line.setAttribute("x1",45);line.setAttribute("x2",W-20);
+    line.setAttribute("y1",yy);line.setAttribute("y2",yy);line.setAttribute("class","grid-line");
+    svg.appendChild(line);
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",5);t.setAttribute("y",yy+4);t.setAttribute("fill","#888");t.setAttribute("font-size","12");
+    t.textContent=Math.round(d*1.0936133)+"y";svg.appendChild(t);
+  }
+
+  const center=document.createElementNS("http://www.w3.org/2000/svg","line");
+  center.setAttribute("x1",cx);center.setAttribute("x2",cx);center.setAttribute("y1",top);center.setAttribute("y2",bottom);center.setAttribute("class","center-line");
+  svg.appendChild(center);
+
+  fs.forEach(s=>{
+    const xx=x(s.lr),yy=y(s.distance);
+    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx",xx);c.setAttribute("cy",yy);c.setAttribute("r",7);c.setAttribute("class","ball");
+    c.setAttribute("title","#"+s.number+" "+formatDistance(s.distance)+" "+formatLR(s.lr));
+    svg.appendChild(c);
+
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",xx+10);t.setAttribute("y",yy+4);t.setAttribute("fill","#ddd");t.setAttribute("font-size","12");
+    t.textContent=s.number;svg.appendChild(t);
+  });
+}
+
+/* ---------- Clubs/reset/export ---------- */
+function addClub(){
+  const input=document.getElementById("newClub");
+  const name=input.value.trim();
+  if(!name)return;
+  if(!clubs.includes(name)){clubs.push(name);saveClubs();populateClubDropdowns();}
+  document.getElementById("club").value=name;
+  document.getElementById("filterClub").value=name;
+  input.value="";
+  updateDisplay();
+}
+function resetSession(){
+  if(!confirm("Reset all current shots, anchor and target settings? Your saved custom club list will remain."))return;
+  anchor=null;target=null;basis=null;shots=[];
+  localStorage.removeItem(STORAGE_KEY);
+  document.getElementById("anchorDisplay").innerText="";
+  document.getElementById("targetDisplay").innerText="";
+  document.getElementById("sessionStatus").innerText="No anchor set.";
+  document.getElementById("gpsStatus").innerText="Waiting for GPS.";
+  document.getElementById("gpsStatus").className="status";
+  document.getElementById("logStatus").innerText="No shots logged yet.";
+  document.getElementById("logStatus").className="status";
+  updateDisplay();
+}
+function exportCSV(){
+  if(!shots.length){alert("There are no shots to export.");return;}
+  let csv="Shot,Club,Latitude,Longitude,Distance_Yards,Left_Right_Yards,GPS_Accuracy_Meters,GPS_Samples,Time\n";
+  shots.forEach(s=>{
+    csv+=[
+      s.number,
+      '"'+String(s.club).replace(/"/g,'""')+'"',
+      s.lat,s.lon,
+      (s.distance*1.0936133).toFixed(1),
+      (s.lr*1.0936133).toFixed(1),
+      Number.isFinite(s.accuracy)?s.accuracy.toFixed(1):"",
+      s.samples||"",
+      '"'+s.time+'"'
+    ].join(",")+"\n";
+  });
+  const blob=new Blob([csv],{type:"text/csv"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="range_marks_session.csv";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+</script>
+</body>
+</html>
